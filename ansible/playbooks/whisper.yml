@@ -1,0 +1,87 @@
+- name: whisperDevOps
+  hosts: whisper
+  become: true
+  remote_user: azureuser
+  gather_facts: false
+  tasks:
+    - name: Ping the VM
+      ping:
+
+    - name: create dir for audio files
+      file:
+        path: /home/audio_files
+        state: directory
+      register: audio_files
+
+    - name: Copy file with owner and permissions
+      ansible.builtin.copy:
+        src: audio.mp3
+        dest: /home/azureuser
+        owner: root
+        group: root
+        mode: "0644"
+      register: copy_audio
+
+    - name: Check for Python
+      raw: test -e /usr/bin/python3
+      changed_when: false
+      failed_when: false
+      register: check_python
+
+    - name: Show result from python install
+      debug:
+        msg: "{{ check_python.stdout }}"
+
+    - name: Install Pip
+      shell: |
+        apt install python3-pip -y
+        pip3 --version
+      register: pip_install
+
+    - name: Show result from pip install
+      debug:
+        msg: "{{ pip_install.stdout }}"
+
+    - name: Install Python
+      shell: |
+        apt install python3 -y
+        pip3 --version
+      when: check_python.rc != 0
+
+    - name: Install ffmpeg
+      raw: test -e /usr/bin/ffmpeg
+      changed_when: false
+      failed_when: false
+      register: check_ffmpeg
+
+    - name: Show result from check ffmpeg install
+      debug:
+        msg: "{{ check_ffmpeg.stdout }}"
+
+    - name: Install ffmpeg
+      shell: |
+        apt install ffmpeg -y
+      register: ffmpeg_install
+
+    - name: Show result from ffmpeg install
+      debug:
+        msg: "{{ ffmpeg_install.stdout }}"
+
+    - name: Setup whisper
+      shell: |
+        pip3 install setuptools-rust
+        pip3 install git+https://github.com/openai/whisper.git
+      register: whisper
+
+    - name: Show result from whisper setup
+      debug:
+        msg: "{{ whisper.stdout }}"
+
+    - name: Configure whisper tiny model
+      shell: |
+        whisper audio.mp3 --model tiny --fp16 False
+      register: whisper_model
+
+    - name: Show result from configuring whisper tiny model
+      debug:
+        msg: "{{ whisper_model.stdout }}"
